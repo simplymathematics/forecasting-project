@@ -1,0 +1,63 @@
+---
+title: "624 Project 2"
+output: html_notebook
+---
+# Final Project
+
+## Dependencies
+
+Our code requires the following dependencies
+```{r}
+library(readxl)
+library(ggplot2)
+library(tidyr)
+library(randomForest)
+library(corrplot)
+library(forecast)
+```
+
+Below we can see a sample of the data, as read from Excel. Our target value is pH and each data vector is numeric. There are also some missing values that must be imputed.
+```{r}
+training <- read_excel("StudentData.xlsx")
+test     <- read_excel("StudentEvaluation.xlsx")
+head(training)
+```
+
+Below we impute the missing values using a monotone cubic approximator (known as a Stineman interpolation). It has a tendency to perform well on linear as well as higher order data vectors.
+```{r}
+training <- na.interpolation(training, option = 'stine')
+```
+Below we can see the mean and standard deviation for each data vector. As we can see, our data occurrs across many orders of magnitude. For the best fit, it should be 
+
+```{r}
+means <- sapply(training, mean, na.rm = TRUE)
+sds   <- sapply(training, sd, na.rm = TRUE)
+explore <- as.data.frame(cbind( means, sds))
+ggplot(explore, aes(x = row.names(explore), y = means))+ 
+  geom_bar(stat = 'identity') + 
+  labs(title = "Means of Various Features") + 
+  xlab("Data Features") + 
+  ylab("Mean of Data") +
+  theme(panel.background = element_blank()) + 
+  geom_errorbar(aes(ymin = means - sds, ymax = means + sds))
+```
+
+```{r fig.height=10}
+ggplot(data = gather(training), mapping = aes(x = value)) + 
+  geom_histogram(aes(y=..density..), colour="black", fill="white")+
+  geom_density(alpha=.2, fill="lightgrey")+
+  facet_wrap(~key, ncol = 2, scales = 'free') 
+```
+
+```{r, echo = FALSE}
+results <- cor(training, method = 'pearson', use = 'complete.obs')
+corrplot::corrplot(results, method = 'circle')
+```
+
+```{r, echo = FALSE}
+training2 <- training
+training2$target <- NULL
+target <- training$target
+fit <- randomForest::randomForest(training2, target, importance = TRUE, ntree = 1000)
+varImpPlot(fit)
+```
