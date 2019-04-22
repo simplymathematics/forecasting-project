@@ -14,12 +14,23 @@ library(tidyr)
 library(randomForest)
 library(corrplot)
 library(forecast)
+library(imputeTS)
 ```
 
-Below we can see a sample of the data, as read from Excel. Our target value is pH and each data vector is numeric. There are also some missing values that must be imputed.
+Below we can see a sample of the data, as read from Excel. Our target value is pH and each data vector is numeric, except for brand code. However, we can convert this is a numeric vector easily. There are also some missing values that must be imputed.
 ```{r}
 training <- read_excel("StudentData.xlsx")
 test     <- read_excel("StudentEvaluation.xlsx")
+
+old <- c("A", "B", "C", "D", "NA")
+new <- c( 1 ,  2 ,  3 ,  4 ,  0 )
+
+head(training)
+```
+
+```{r}
+training <- as.data.frame(sapply(training[- Brand], as.numeric))
+test     <- as.data.frame(sapply(test, as.numeric))
 head(training)
 ```
 
