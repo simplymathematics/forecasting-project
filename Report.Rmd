@@ -17,7 +17,7 @@ library(forecast)
 library(imputeTS)
 ```
 
-Below we can see a sample of the data, as read from Excel. Our target value is pH and each data vector is numeric, except for brand code. However, we can convert this is a numeric vector easily. There are also some missing values that must be imputed.
+Below we can see a sample of the data, as read from Excel. Our target value is pH and each data vector is numeric, except for brand code. However, we can convert this is a numeric vector easily. There are also some missing values that must be imputed. The only non-numeric data is the brand code. All lettered codes have been replaced with the equivalent integers ($ A \rightarrow 1$, B \rightarrow 2 ... $). likewise, the NAs have been replaced with 0 such that they don't contribute to the regression function.
 ```{r}
 training <- read_excel("StudentData.xlsx")
 test     <- read_excel("StudentEvaluation.xlsx")
@@ -25,11 +25,15 @@ test     <- read_excel("StudentEvaluation.xlsx")
 old <- c("A", "B", "C", "D", "NA")
 new <- c( 1 ,  2 ,  3 ,  4 ,  0 )
 
+for (i in 1:length(old)){
+  training$`Brand Code` <- gsub(old[i], new[i], training$`Brand Code`)
+}
+
 head(training)
 ```
 
 ```{r}
-training <- as.data.frame(sapply(training[- Brand], as.numeric))
+training <- as.data.frame(sapply(training, as.numeric))
 test     <- as.data.frame(sapply(test, as.numeric))
 head(training)
 ```
@@ -57,18 +61,18 @@ ggplot(explore, aes(x = row.names(explore), y = means))+
 ggplot(data = gather(training), mapping = aes(x = value)) + 
   geom_histogram(aes(y=..density..), colour="black", fill="white")+
   geom_density(alpha=.2, fill="lightgrey")+
-  facet_wrap(~key, ncol = 2, scales = 'free') 
+  facet_wrap(~key, ncol = 1, scales = 'free') 
 ```
 
 ```{r, echo = FALSE}
-results <- cor(training, method = 'pearson', use = 'complete.obs')
+results <- cor(training, method = 'pearson')
 corrplot::corrplot(results, method = 'circle')
 ```
 
 ```{r, echo = FALSE}
-training2 <- training
-training2$target <- NULL
-target <- training$target
-fit <- randomForest::randomForest(training2, target, importance = TRUE, ntree = 1000)
+training_forest <- training
+training_forest$PH <- NULL
+target <- training$PH
+fit <- randomForest::randomForest(training_forest, target, importance = TRUE, ntree = 100)
 varImpPlot(fit)
 ```
