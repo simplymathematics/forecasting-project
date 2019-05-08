@@ -282,6 +282,7 @@ We now compare and rank the RMSE errors produced by the various models on the po
 
 Since we see that the Random Forest model produced the lowest RMSE on the withheld training data, we select it as the best model to predict PH in the manufacturing process data set. A final set of predictions is made using this model.
 
+# TODO: Add SVM/GLMs to Analysis
 
 ```{r compare_and_predict, eval=T, echo=T, warning=F, message=F}
 modelperf = data.frame(matrix(ncol=3, nrow=6))
@@ -302,7 +303,7 @@ ggplot(data=modelperf, aes(x=Model, y=RMSE, fill=Dataset)) +
 
 bestFit = rfFit
 PH.pred = predict(bestFit, test)
-write.xlsx(PH.pred, file="DATA624_Proj2_Ann_Charlie_Vikas.xlsx", sheetName="PH", append=F)
+write.xlsx(PH.pred, file="DATA624.xlsx", sheetName="PH", append=F)
 ```
 
 
