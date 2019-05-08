@@ -1,9 +1,7 @@
 ---
 title: "Data 624 Project 2"
 author:
-  - Ann Liu-Ferrara
-  - Charles Meyers
-  - Vikas Sinha
+
 
 output:
   html_document:
