@@ -31,6 +31,7 @@ Our code requires the following dependencies.
 library(caret)
 library(caTools)
 library(corrplot)
+library(e1071)
 library(forecast)
 library(ggplot2)
 library(imputeTS)
@@ -121,10 +122,7 @@ corrplot::corrplot(results, method = 'circle')
 #table(is.na(training$PH))
 ## remove rows with missing response variable
 training <- training[!is.na(training$PH), ]
-## missing data by Brand Code
-#table(training$'Brand Code', complete.cases(training), useNA = 'always')
-## fill missing Brand Code value with U
-training$`Brand.Code`[is.na(training$`Brand.Code`)] <- 'U'
+
 ## near zero value predictors
 nzv <- nearZeroVar(training, saveMetrics= TRUE)
 nzv[nzv$nzv,]
@@ -137,8 +135,10 @@ nzv[nzv$nzv,]
 Remove near zero predictors, filling in missing values with knn method, transform predictors using YeoJohnson method, center and scale the data as well.
 
 ```{r pre_proc, eval=T, echo=T, warning=F, message=F}
-preProcValues <- preProcess(training[, -20], method = c("YeoJohnson", "nzv", "knnImpute"))
+preProcValues <- preProcess(training[, -20], method = c("YeoJohnson", "nzv"))
+
 trainTransformed <- predict(preProcValues, training)
+
 ```
 
 
@@ -162,6 +162,7 @@ svmFit <- train(PH ~ ., data = trainTransformed,
                  tuneLength = 8,
                  metric = "RMSE")
 svmFit
+model1 <- svmFit
 }
 ```
 
@@ -201,6 +202,8 @@ rfFit <- randomForest::randomForest(PH ~ ., data = training_forest, importance =
 
 varImpPlot(rfFit, n.var=20,
            main="Important Variables in Random Forest Model (top 20 shown)")
+
+model2 <- rfFit
 ```
 
 
@@ -239,11 +242,38 @@ nnetFit <- nnet(training_nn, training_nn_ph,
                 ## Number of parameters used by the model
                 MaxNWts= 4 * (ncol(training_nn) + 1) + 5 + 1)
 nnetFit
-
+model3 <- nnetFit
 rmse.nnet.train = rmse(training_nn_ph, predict(nnetFit, training_nn))
 rmse.nnet.test = rmse(test_nn_ph, predict(nnetFit, test_nn))
 kable(data.frame(Model=c("ANN"), RMSE.train=c(rmse.nnet.train), RMSE.test=c(rmse.nnet.test)))
 ```
+# Generalized Linear Models
+
+```{r}
+
+glm_label <- training$PH
+glm_train <- select(training, -PH)
+
+model4 <- glm(glm_label ~., glm_train, family = "gaussian")
+model5 <- step(model4, direction = "backward")
+model6 <- step(model5, direction = "backward")
+model7 <- step(model6, direction = "backward")
+
+
+
+logistic_label <- sigmoid(glm_label)
+
+model8 <- glm(logistic_label ~., glm_train, family = "binomial")
+model9 <- step(model8, direction = "backward")
+model10 <- step(model9, direction = "backward")
+
+
+summary(model8)
+#summary(model4)
+
+model4
+```
+
 
 
 ### Comparison of Models
