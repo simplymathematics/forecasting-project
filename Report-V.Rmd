@@ -32,6 +32,7 @@ library(caret)
 library(caTools)
 library(corrplot)
 library(e1071)
+library(fastDummies)
 library(forecast)
 library(ggplot2)
 library(imputeTS)
@@ -56,13 +57,18 @@ Below we can see a sample of the data, as read from Excel files. Our target vari
 ```{r init1, eval=T, echo=T, warning=F, message=F}
 training <- read_excel("StudentData.xlsx")
 test     <- read_excel("StudentEvaluation.xlsx")
+ 
+# Wrongly assumed that I didn't need dummy vars
+#old <- c("A", "B", "C", "D", "NA")
+#new <- c( 1 ,  2 ,  3 ,  4 ,  0 )
 
-old <- c("A", "B", "C", "D", "NA")
-new <- c( 1 ,  2 ,  3 ,  4 ,  0 )
+#for (i in 1:length(old)){
+#  training$`Brand Code` <- gsub(old[i], new[i], training$`Brand Code`)
+#}
 
-for (i in 1:length(old)){
-  training$`Brand Code` <- gsub(old[i], new[i], training$`Brand Code`)
-}
+training <- dummy_cols(training, select_columns = training$Brand.Code)
+
+
 
 training <- as.data.frame(sapply(training, as.numeric))
 test     <- as.data.frame(sapply(test, as.numeric))
@@ -70,6 +76,7 @@ test     <- as.data.frame(sapply(test, as.numeric))
 names(training) <- make.names(names(training))
 names(test) <- make.names(names(test))
 
+training$Brand.Code <- NULL
 head(training)
 ```
 
