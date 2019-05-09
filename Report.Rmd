@@ -301,10 +301,14 @@ model9 <- step(model8, direction = "backward")
 model10 <- step(model9, direction = "backward")
 
 
-summary(model8)
-#summary(model4)
-
-model4
+sum4 <- summary(model4)
+sum5 <- summary(model5)
+sum6 <- summary(model6)
+sum7 <- summary(model7)
+sum8 <- summary(model8)
+sum9 <- summary(model9)
+sum10 <- summary(model10)
+ 
 ```
 
 
