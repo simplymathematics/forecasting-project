@@ -65,7 +65,7 @@ test     <- read_excel("StudentEvaluation.xlsx")
 #}
 
 training <- dummy_cols(training, select_columns = training$Brand.Code)
-
+test <- dummy_cols(test, select_columns = test$Brand.Code)
 
 
 training <- as.data.frame(sapply(training, as.numeric))
@@ -75,6 +75,7 @@ names(training) <- make.names(names(training))
 names(test) <- make.names(names(test))
 
 training$Brand.Code <- NULL
+test$Brand.Code <- NULL
 head(training)
 ```
 
@@ -140,10 +141,16 @@ nzv[nzv$nzv,]
 Remove near zero predictors, filling in missing values with knn method, transform predictors using YeoJohnson method, center and scale the data as well.
 
 ```{r pre_proc, eval=T, echo=T, warning=F, message=F}
-preProcValues <- preProcess(training[, -20], method = c("YeoJohnson", "nzv"))
+x_train <- subset(training, select = -PH )
+y_train <- training$PH
 
-trainTransformed <- predict(preProcValues, training)
+x_test <- subset(test, select = -PH )
+y_test <- test$PH
 
+preProcValues <- preProcess(x_train, method = c("center", "scale", "YeoJohnson", "nzv", "corr"))
+
+trainTransformed <- predict(preProcValues, x_train)
+testTransformed <- predict(preProcValues, x_test)
 ```
 
 
@@ -158,10 +165,10 @@ if (exec) {
 set.seed(100)
 fitControl <- trainControl(## 10-fold CV
                            method = "repeatedcv",
-                           number = 10,
+                           number = 3,
                            ## repeated ten times
-                           repeats = 10)
-svmFit <- train(PH ~ ., data = trainTransformed,
+                           repeats = 3)
+svmFit <- train(trainTransformed, y_train,
                  method = "svmRadial",
                  trControl = fitControl,
                  tuneLength = 8,
@@ -171,6 +178,27 @@ model1 <- svmFit
 }
 ```
 
+### Stochastic Gradient Boosting 
+
+```{r}
+gbmGrid <-  expand.grid(interaction.depth = c(1, 5, 9), 
+                        n.trees = (1:30)*50, 
+                        shrinkage = 0.1,
+                        n.minobsinnode = 20)
+                        
+nrow(gbmGrid)
+
+set.seed(123)
+gbmFit <- train(trainTransformed, y_train,
+                 method = "gbm", 
+                 trControl = fitControl, 
+                 verbose = FALSE, 
+                 tuneGrid = gbmGrid,
+                 ## Specify which metric to optimize
+                 metric = "RMSE")
+gbmFit
+
+```
 
 ### Random Forest Model
 
