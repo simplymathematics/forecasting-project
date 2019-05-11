@@ -55,18 +55,9 @@ Below we can see a sample of the data, as read from Excel files. Our target vari
 ```{r init1, eval=T, echo=T, warning=F, message=F}
 training <- read_excel("StudentData.xlsx")
 test     <- read_excel("StudentEvaluation.xlsx")
- 
-# Wrongly assumed that I didn't need dummy vars
-#old <- c("A", "B", "C", "D", "NA")
-#new <- c( 1 ,  2 ,  3 ,  4 ,  0 )
-
-#for (i in 1:length(old)){
-#  training$`Brand Code` <- gsub(old[i], new[i], training$`Brand Code`)
-#}
 
 training <- dummy_cols(training, select_columns = training$Brand.Code)
 test <- dummy_cols(test, select_columns = test$Brand.Code)
-
 
 training <- as.data.frame(sapply(training, as.numeric))
 test     <- as.data.frame(sapply(test, as.numeric))
@@ -157,30 +148,48 @@ testTransformed <- predict(preProcValues, x_test)
 
 ### Support Vector Machine Model
 
-TODO: This section needs to be enabled. rmse values need to be calculated.
-
 ```{r svm1, eval=T, echo=T, warning=F, message=F}
-exec = FALSE
-if (exec) {
 set.seed(100)
+
+y_train.orig = y_train
+sample = sample.split(y_train.orig, SplitRatio = .75)
+y_train_svm = subset(y_train.orig, sample == TRUE)
+y_test_svm = subset(y_train.orig, sample == FALSE)
+
+training_svm = subset(trainTransformed, sample == TRUE)
+test_svm = subset(trainTransformed, sample == FALSE)
+
 fitControl <- trainControl(## 10-fold CV
                            method = "repeatedcv",
                            number = 3,
                            ## repeated ten times
                            repeats = 3)
-svmFit <- train(trainTransformed, y_train,
+svmFit <- train(training_svm, y_train_svm,
                  method = "svmRadial",
                  trControl = fitControl,
                  tuneLength = 8,
                  metric = "RMSE")
 svmFit
 model1 <- svmFit
-}
+
+rmse.svm.train = rmse(predict(svmFit, training_svm), y_train_svm)
+rmse.svm.test = rmse(predict(svmFit, test_svm), y_test_svm)
+kable(data.frame(Model=c("Support Vector Machine"), RMSE.train=c(rmse.svm.train), RMSE.test=c(rmse.svm.test)))
 ```
+
+
 
 ### Stochastic Gradient Boosting 
 
-```{r}
+```{r SGB1, eval=T, echo=T, warning=F, message=F}
+
+y_train_gbm = subset(y_train.orig, sample == TRUE)
+y_test_gbm = subset(y_train.orig, sample == FALSE)
+
+training_gbm = subset(trainTransformed, sample == TRUE)
+test_gbm = subset(trainTransformed, sample == FALSE)
+
+
 gbmGrid <-  expand.grid(interaction.depth = c(1, 5, 9), 
                         n.trees = (1:30)*50, 
                         shrinkage = 0.1,
@@ -189,16 +198,20 @@ gbmGrid <-  expand.grid(interaction.depth = c(1, 5, 9),
 nrow(gbmGrid)
 
 set.seed(123)
-gbmFit <- train(trainTransformed, y_train,
-                 method = "gbm", 
-                 trControl = fitControl, 
-                 verbose = FALSE, 
+gbmFit <- train(training_gbm, y_train_gbm,
+                 method = "gbm",
+                 trControl = fitControl,
+                 verbose = FALSE,
                  tuneGrid = gbmGrid,
                  ## Specify which metric to optimize
                  metric = "RMSE")
-gbmFit
+summary(gbmFit)
 
+rmse.gbm.train = rmse(y_train_gbm, predict(gbmFit, training_gbm))
+rmse.gbm.test = rmse(y_test_gbm, predict(gbmFit, test_gbm))
+kable(data.frame(Model=c("Stochastic Gradient Boosting"), RMSE.train=c(rmse.gbm.train), RMSE.test=c(rmse.gbm.test)))
 ```
+
 
 ### Random Forest Model
 
@@ -226,17 +239,15 @@ are seen to generalize very well to unseen real-world data.
 set.seed(123)
 sample = sample.split(training$PH, SplitRatio = .75)
 training_forest = subset(training, sample == TRUE)
-test_forest  = subset(training, sample == FALSE)
+test_forest = subset(training, sample == FALSE)
 
 set.seed(123)
-training_forest <- training_forest %>% dplyr::select(-Brand.Code)
 rfFit <- randomForest::randomForest(PH ~ ., data = training_forest, importance = TRUE,
                                     ntree = 100, keep.forest = TRUE)
+model2 <- rfFit
 
 varImpPlot(rfFit, n.var=20,
            main="Important Variables in Random Forest Model (top 20 shown)")
-
-model2 <- rfFit
 ```
 
 
@@ -247,7 +258,7 @@ training_forest2 = dplyr::select(training_forest, -PH)
 rfPred.train = predict(rfFit, training_forest2)
 rmse.rf.train = rmse(training_forest$PH, rfPred.train)
 
-test_forest2 = dplyr::select(test_forest, -PH, -Brand.Code)
+test_forest2 = dplyr::select(test_forest, -PH)
 rfPred.test = predict(rfFit, test_forest2)
 rmse.rf.test = rmse(test_forest$PH, rfPred.test)
 
@@ -280,20 +291,33 @@ rmse.nnet.train = rmse(training_nn_ph, predict(nnetFit, training_nn))
 rmse.nnet.test = rmse(test_nn_ph, predict(nnetFit, test_nn))
 kable(data.frame(Model=c("ANN"), RMSE.train=c(rmse.nnet.train), RMSE.test=c(rmse.nnet.test)))
 ```
-# Generalized Linear Models
-
-```{r}
-
-glm_label <- training$PH
-glm_train <- select(training, -PH)
-
-model4 <- glm(glm_label ~., glm_train, family = "gaussian")
-model5 <- step(model4, direction = "backward")
-model6 <- step(model5, direction = "backward")
-model7 <- step(model6, direction = "backward")
 
 
 
+### Generalized Linear Model
+
+```{r glm1, eval=T, echo=T, warning=F, message=F}
+set.seed(123)
+training_glm = subset(training, sample == TRUE)
+test_glm = subset(training, sample == FALSE)
+
+glm_train_label <- training_glm$PH
+glm_test_label <- test_glm$PH
+glm_train <- select(training_glm, -PH)
+glm_test <- select(test_glm, -PH)
+
+model4 <- glm(glm_train_label ~., glm_train, family = "gaussian")
+model5 <- step(model4, direction = "backward", trace = FALSE)
+
+#model6 <- step(model5, direction = "backward", trace = FALSE)
+#model7 <- step(model6, direction = "backward", trace = FALSE)
+
+rmse.glm.train <- rmse(predict(model5, glm_train), glm_train_label)
+rmse.glm.test <- rmse(predict(model5, glm_test), glm_test_label)
+kable(data.frame(Model=c("GLM"), RMSE.train=c(rmse.glm.train), RMSE.test=c(rmse.glm.test)))
+
+do_logistic = FALSE
+if (do_logistic) {
 logistic_label <- sigmoid(glm_label)
 
 model8 <- glm(logistic_label ~., glm_train, family = "binomial")
@@ -308,7 +332,7 @@ sum7 <- summary(model7)
 sum8 <- summary(model8)
 sum9 <- summary(model9)
 sum10 <- summary(model10)
- 
+}
 ```
 
 
@@ -319,13 +343,11 @@ We now compare and rank the RMSE errors produced by the various models on the po
 
 Since we see that the Random Forest model produced the lowest RMSE on the withheld training data, we select it as the best model to predict PH in the manufacturing process data set. A final set of predictions is made using this model.
 
-# TODO: Add SVM/GLMs to Analysis
 
 ```{r compare_and_predict, eval=T, echo=T, warning=F, message=F}
-modelperf = data.frame(matrix(ncol=3, nrow=6))
+modelperf = data.frame(matrix(ncol=3, nrow=10))
 colnames(modelperf) = c("Dataset", "Model", "RMSE")
 
-rmse.svm.train = rmse.svm.test = 0
 
 modelperf[1,] = list("Train", "Random Forest", rmse.rf.train)
 modelperf[2,] = list("Test", "Random Forest", rmse.rf.test)
@@ -333,6 +355,10 @@ modelperf[3,] = list("Train", "ANN", rmse.nnet.train)
 modelperf[4,] = list("Test", "ANN", rmse.nnet.test)
 modelperf[5,] = list("Train", "SVM", rmse.svm.train)
 modelperf[6,] = list("Test", "SVM", rmse.svm.test)
+modelperf[7,] = list("Train", "GBM", rmse.gbm.train)
+modelperf[8,] = list("Test", "GBM", rmse.gbm.test)
+modelperf[9,] = list("Train", "GLM", rmse.glm.train)
+modelperf[10,] = list("Test", "GLM", rmse.glm.test)
 
 ggplot(data=modelperf, aes(x=Model, y=RMSE, fill=Dataset)) +
     geom_bar(stat="identity", position=position_dodge()) +
