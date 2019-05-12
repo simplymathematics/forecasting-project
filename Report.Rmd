@@ -16,17 +16,12 @@ output:
 
 # Problem Statement
 
-Data related to the manufacturing process of a soft drink are provided, including values
-of various parameters that control the process. The objective is to build a predictive model to predict the
-pH content based on the manufacturing process data.
+Data related to the manufacturing process of a soft drink are provided, including values of various parameters that control the process. The objective is to build a predictive model to predict the pH content based on the manufacturing process data.
 
 
 # Executive Summary
 
-Since predicting the value of a numerical variable such as PH is a regression problem, our methodology consists of
-building five different models for the problem, and ranking their performance on a holdout portion
-of the training data provided. We then selected the model with the lowest RMSE value on the
-holdout data set. We developed predictors using the following models:
+Since predicting the value of a numerical variable such as PH is a regression problem, our methodology consists of building five different models for the problem, and ranking their performance on a holdout portion of the training data provided. We then selected the model with the lowest RMSE value on the holdout data set. We developed predictors using the following models:
 
     - Support Vector Machine
     - Stochastic Gradient Boosting
@@ -34,11 +29,9 @@ holdout data set. We developed predictors using the following models:
     - Neural Network
     - Generalized Linear Model
 
-Comparing the model prediction errors on the holdout data set, we found that the Random Forest model
-consistently produced the best results, and we therefore selected it to make predictions on
-the test data set that was provided.
+Comparing the model prediction errors on the holdout data set, we found that the Random Forest model consistently produced the best results, and we therefore selected it to make predictions on the test data set that was provided.
 
-<TODO: Also mention what were the most important predictors>
+We also examined the most important predictors related to PH values. The more we understand the relationships between PH and the variable, the better we can manage PH through manipulating those variables effectively. The top 1 - 6 of most important variables are: Mnf.FLow, Band.Code_C(via one-hot-encoding of Brand.Code), Pressure.Vacuum, Oxygen.Filler, and Temperature.
 
 ## Dependencies
 
@@ -103,7 +96,7 @@ training <- na.interpolation(training, option = 'stine')
 test <- na.interpolation(test, option = 'stine')
 ```
 
-Below we can see the mean and standard deviation for each data vector. As we can see, our data occurrs across many orders of magnitude. For the best fit, the data should be centered and scaled. 
+Below we can see the mean and standard deviation for each data vector. As we can see, our data occurs across many orders of magnitude. For the best fit, the data should be centered and scaled. 
 
 ```{r mean_sd, eval=T, echo=T, warning=F, message=F}
 means <- sapply(training, mean, na.rm = TRUE)
@@ -206,15 +199,17 @@ svmFit
 model1 <- svmFit
 
 rmse.svm.train = rmse(predict(svmFit, training_svm), y_train_svm)
+r2.svm.train = R2(predict(svmFit, training_svm), y_train_svm)
 rmse.svm.test = rmse(predict(svmFit, test_svm), y_test_svm)
-kable(data.frame(Model=c("Support Vector Machine"), RMSE.train=c(rmse.svm.train), RMSE.test=c(rmse.svm.test)))
+r2.svm.test = R2(predict(svmFit, test_svm), y_test_svm)
+kable(data.frame(Model=c("Support Vector Machine"), RMSE.train=c(rmse.svm.train), RSquared.train=c(r2.svm.train), RMSE.test=c(rmse.svm.test), RSquared.test=c(r2.svm.test)))
 ```
 
 
 
 # Stochastic Gradient Boosting
 
-Gradient Boosting Models (GBM) and Random Forests are both tree-based ensemble algorithms, the difference being in the way that ensembles are created. RFs create independent trees, and each reaches maximum depth and contributes equally to the final model. GBMs build dependent trees with minimum depth, and contributes differently to the final model. An advantage of GBMs is that they will have better performance than RFs if tuning is done properly, and they are good for detecting anomalies. On the other hand, GBMs are more compute-intensive than RFs, and more prone to overfitting.
+Gradient Boosting Models (GBM) and Random Forests are both tree-based ensemble algorithms, the difference being in the way that ensembles are created. RFs create independent trees, and each reaches maximum depth and contributes equally to the final model. GBMs build dependent trees with minimum depth, and contributes differently to the final model. An advantage of GBMs is that they will have better performance than RFs if tuning is done properly, and they are good for detecting anomalies. On the other hand, GBMs are more compute-intensive than RFs, and more prone to over fitting.
 
 
 ```{r SGB1, eval=T, echo=T, warning=F, message=F}
@@ -244,8 +239,10 @@ gbmFit <- train(training_gbm, y_train_gbm,
 #summary(gbmFit)
 
 rmse.gbm.train = rmse(y_train_gbm, predict(gbmFit, training_gbm))
+r2.gbm.train = R2(y_train_gbm, predict(gbmFit, training_gbm))
 rmse.gbm.test = rmse(y_test_gbm, predict(gbmFit, test_gbm))
-kable(data.frame(Model=c("Stochastic Gradient Boosting"), RMSE.train=c(rmse.gbm.train), RMSE.test=c(rmse.gbm.test)))
+r2.gbm.test = R2(y_test_gbm, predict(gbmFit, test_gbm))
+kable(data.frame(Model=c("Stochastic Gradient Boosting"), RMSE.train=c(rmse.gbm.train), RSquared.train=c(r2.gbm.train), RMSE.test=c(rmse.gbm.test), RSquared.test=c(r2.gbm.test)))
 ```
 
 
@@ -293,18 +290,18 @@ We now compute RMSE values for the Random Forest model on both the training and 
 training_forest2 = dplyr::select(training_forest, -PH)
 rfPred.train = predict(rfFit, training_forest2)
 rmse.rf.train = rmse(training_forest$PH, rfPred.train)
-
+r2.rf.train = R2(training_forest$PH, rfPred.train)
 test_forest2 = dplyr::select(test_forest, -PH)
 rfPred.test = predict(rfFit, test_forest2)
 rmse.rf.test = rmse(test_forest$PH, rfPred.test)
-
-kable(data.frame(Model=c("Random Forest"), RMSE.train=c(rmse.rf.train), RMSE.test=c(rmse.rf.test)))
+r2.rf.test = R2(test_forest$PH, rfPred.test)
+kable(data.frame(Model=c("Random Forest"), RMSE.train=c(rmse.rf.train), RSquared.train=c(r2.rf.train), RMSE.test=c(rmse.rf.test), RSquared.test=c(r2.rf.test)))
 ```
 
 
 # Neural Network Model
 
-Neural Networks are a powerful nonlinear technique inspired by theories about how the human brain works [5]. Neural Networks can be classifiers (when the output variable is categorical) or regression (when the output variable is numeric). In this problem we use a regression artifical neural network (ANN) using the nnet package in R. Below we build and evaluate a Neural Network model of the regression problem.
+Neural Networks are a powerful nonlinear technique inspired by theories about how the human brain works [5]. Neural Networks can be classifiers (when the output variable is categorical) or regression (when the output variable is numeric). In this problem we use a regression artificial neural network (ANN) using the nnet package in R. Below we build and evaluate a Neural Network model of the regression problem.
 
 
 ```{r nnet1, eval=T, echo=T, warning=F, message=F}
@@ -325,8 +322,10 @@ nnetFit <- nnet(training_nn, training_nn_ph,
 nnetFit
 model3 <- nnetFit
 rmse.nnet.train = rmse(training_nn_ph, predict(nnetFit, training_nn))
+r2.nnet.train = R2(training_nn_ph, predict(nnetFit, training_nn))
 rmse.nnet.test = rmse(test_nn_ph, predict(nnetFit, test_nn))
-kable(data.frame(Model=c("ANN"), RMSE.train=c(rmse.nnet.train), RMSE.test=c(rmse.nnet.test)))
+r2.nnet.test = R2(test_nn_ph, predict(nnetFit, test_nn))
+kable(data.frame(Model=c("ANN"), RMSE.train=c(rmse.nnet.train), RSquared.train=c(r2.nnet.train), RMSE.test=c(rmse.nnet.test), RSquared.test=c(r2.nnet.test)))
 ```
 
 
@@ -356,8 +355,10 @@ plot(model5)
 
 
 rmse.glm.train <- rmse(predict(model5, glm_train), glm_train_label)
+r2.glm.train <- R2(predict(model5, glm_train), glm_train_label)
 rmse.glm.test <- rmse(predict(model5, glm_test), glm_test_label)
-kable(data.frame(Model=c("GLM"), RMSE.train=c(rmse.glm.train), RMSE.test=c(rmse.glm.test)))
+r2.glm.test <- R2(predict(model5, glm_test), glm_test_label)
+kable(data.frame(Model=c("GLM"), RMSE.train=c(rmse.glm.train), RSquared.train=c(r2.glm.train), RMSE.test=c(rmse.glm.test), RSquared.test=c(r2.glm.test)))
 ```
 
 As we can see from the summary plots, both generalized linear models have randomly distributed residuals and fall fairly close to the actual values. It therefore fulfills the assumptions of this model
@@ -370,24 +371,28 @@ Since we see that the Random Forest model produced the lowest RMSE on the withhe
 
 
 ```{r compare_and_predict, eval=T, echo=T, warning=F, message=F}
-modelperf = data.frame(matrix(ncol=3, nrow=10))
-colnames(modelperf) = c("Dataset", "Model", "RMSE")
+modelperf = data.frame(matrix(ncol=4, nrow=10))
+colnames(modelperf) = c("Dataset", "Model", "RMSE", "RSquared")
 
 
-modelperf[1,] = list("Train", "Random Forest", rmse.rf.train)
-modelperf[2,] = list("Test", "Random Forest", rmse.rf.test)
-modelperf[3,] = list("Train", "ANN", rmse.nnet.train)
-modelperf[4,] = list("Test", "ANN", rmse.nnet.test)
-modelperf[5,] = list("Train", "SVM", rmse.svm.train)
-modelperf[6,] = list("Test", "SVM", rmse.svm.test)
-modelperf[7,] = list("Train", "GBM", rmse.gbm.train)
-modelperf[8,] = list("Test", "GBM", rmse.gbm.test)
-modelperf[9,] = list("Train", "GLM", rmse.glm.train)
-modelperf[10,] = list("Test", "GLM", rmse.glm.test)
+modelperf[1,] = list("Train", "Random Forest", rmse.rf.train, r2.rf.train)
+modelperf[2,] = list("Test", "Random Forest", rmse.rf.test, r2.rf.test)
+modelperf[3,] = list("Train", "ANN", rmse.nnet.train, r2.nnet.train)
+modelperf[4,] = list("Test", "ANN", rmse.nnet.test, r2.nnet.test)
+modelperf[5,] = list("Train", "SVM", rmse.svm.train, r2.svm.train)
+modelperf[6,] = list("Test", "SVM", rmse.svm.test, r2.svm.test)
+modelperf[7,] = list("Train", "GBM", rmse.gbm.train, r2.gbm.train)
+modelperf[8,] = list("Test", "GBM", rmse.gbm.test, r2.gbm.test)
+modelperf[9,] = list("Train", "GLM", rmse.glm.train, r2.glm.train)
+modelperf[10,] = list("Test", "GLM", rmse.glm.test, r2.glm.test)
 
-ggplot(data=modelperf, aes(x=Model, y=RMSE, fill=Dataset)) +
+ggplot(data=modelperf, aes(x=reorder(Model, RMSE), y=RMSE, fill=Dataset)) +
     geom_bar(stat="identity", position=position_dodge()) +
-    ggtitle("Model Performance for PH Prediction")
+    ggtitle("Model RMSE for PH Prediction")
+
+ggplot(data=modelperf, aes(x=reorder(Model, -RSquared), y=round(RSquared,3), fill=Dataset)) +
+    geom_bar(stat="identity", position=position_dodge()) +
+    ggtitle("Model RSquared for PH Prediction")
 
 bestFit = model5
 PH.pred = predict(bestFit, test)
@@ -397,13 +402,14 @@ write.xlsx(PH.pred, file="DATA624_Proj2.xlsx", sheetName="PH", append=F)
 
 # Conclusions
 
-All of our models performed fairly well, with a measured RMSE of around one-tenth of a pH point. The Random Forest regressor has the worst split between test and train data which is symptomatic of overfitting. However, this split was greatly reduced by gradient boosting, at the cost of higher RMSE. Additionally, the support vector machine also suffered from a test/train split that was fairly large. Therefore, it is hard to know how it will perform across a generalized data set. Since the GLM underperforms the only remaining model (the neural network) by only .01 RMSE, there seems to be no downsides to deploying the linear model. In additional, the computational costs associate with the neural network far outweigh the marginal benefits. A linear model can be computed trivially on any type of hardware (CPU or GPU). This is the method we will be deploying.
+All of our models performed fairly well, with a measured RMSE of less than one-tenth of a pH point. Random Forecast outperformed other models with the smallest RMSE and largest RSquared values in training (0.0410 and 0.96) and test (0.099 and 0.684), and is selected as a winner. Random Forecast is a tree-based model, it is hard to get coefficients for each variables, but it does have a way to show the importance of the variables in affecting the target variables, as showed in the important variable lists above. The top 6 highly important variables are Mnf.FLow, Band.Code_C(via one-hot-encoding of Brand.Code), Pressure.Vacuum, Oxygen.Filler, and Temperature. By changing these variables, we can maximum control the PH of the product.
+
+Even though Random Forest regressor has the worst split between test and train data which is symptomatic of over fitting. However, this split was greatly reduced by gradient boosting, at the cost of higher RMSE. Additionally, the support vector machine also suffered from a test/train split that was fairly large. Therefore, it is hard to know how it will perform across a generalized data set. Since the GLM underperforms the only remaining model (the neural network) by only .01 RMSE, there seems to be no downsides to deploying the linear model. In additional, the computational costs associate with the neural network far outweigh the marginal benefits. A linear model can be computed trivially on any type of hardware (CPU or GPU). This is the method we will be deploying.
 
 
-```{r}
-summary(model5)
-```
-TODO: Discuss the coefficients of the chosen model. 
+# Next Step
+
+They are many ways we can continue improving the model performance, one method could be running more times of cross validation on more folds than 3 times 3-fold we have now for SVM and GBM models, it will take a longer time to compute, but the results will be lifted. Another one is to try different model training and test split, as the big differences are showed in training and test model performance in Random Forecast and SVM.
 
 
 # References
