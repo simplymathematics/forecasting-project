@@ -1,53 +1,415 @@
-
-[Show in New Window] [Clear Output] [Expand/Collapse Output]
-
-
-Call:
-glm(formula = glm_train_label ~ Fill.Ounces + PC.Volume + PSC.Fill + 
-    PSC.CO2 + Mnf.Flow + Carb.Pressure1 + Hyd.Pressure2 + Hyd.Pressure3 + 
-    Filler.Level + Temperature + Usage.cont + Carb.Flow + Density + 
-    Balling + Pressure.Vacuum + Oxygen.Filler + Bowl.Setpoint + 
-    Pressure.Setpoint + Alch.Rel + Balling.Lvl + Brand.Code_B + 
-    Brand.Code_C + Brand.Code_D, family = "gaussian", data = glm_train)
-
-Deviance Residuals: 
-     Min        1Q    Median        3Q       Max  
--0.53117  -0.07755   0.01161   0.08352   0.81864  
-
-Coefficients:
-                    Estimate Std. Error t value Pr(>|t|)    
-(Intercept)        1.040e+01  9.201e-01  11.302  < 2e-16 ***
-Fill.Ounces       -9.059e-02  3.569e-02  -2.538 0.011212 *  
-PC.Volume         -9.205e-02  5.684e-02  -1.620 0.105504    
-PSC.Fill          -4.991e-02  2.652e-02  -1.882 0.059952 .  
-PSC.CO2           -1.297e-01  7.056e-02  -1.839 0.066142 .  
-Mnf.Flow          -6.812e-04  5.179e-05 -13.153  < 2e-16 ***
-Carb.Pressure1     7.158e-03  7.660e-04   9.345  < 2e-16 ***
-Hyd.Pressure2     -9.755e-04  5.448e-04  -1.791 0.073503 .  
-Hyd.Pressure3      3.427e-03  6.563e-04   5.222 1.97e-07 ***
-Filler.Level      -1.210e-03  6.091e-04  -1.987 0.047034 *  
-Temperature       -1.344e-02  2.559e-03  -5.252 1.67e-07 ***
-Usage.cont        -6.618e-03  1.297e-03  -5.100 3.73e-07 ***
-Carb.Flow          1.163e-05  3.723e-06   3.123 0.001816 ** 
-Density           -1.069e-01  3.095e-02  -3.456 0.000561 ***
-Balling           -1.002e-01  2.457e-02  -4.077 4.75e-05 ***
-Pressure.Vacuum   -1.645e-02  8.015e-03  -2.052 0.040278 *  
-Oxygen.Filler     -2.378e-01  7.569e-02  -3.142 0.001704 ** 
-Bowl.Setpoint      3.687e-03  6.245e-04   5.905 4.17e-09 ***
-Pressure.Setpoint -7.795e-03  1.845e-03  -4.226 2.49e-05 ***
-Alch.Rel           7.775e-02  2.317e-02   3.355 0.000809 ***
-Balling.Lvl        1.214e-01  2.219e-02   5.469 5.12e-08 ***
-Brand.Code_B       6.946e-02  1.419e-02   4.895 1.06e-06 ***
-Brand.Code_C      -7.403e-02  1.526e-02  -4.852 1.32e-06 ***
-Brand.Code_D       4.649e-02  1.624e-02   2.863 0.004243 ** 
 ---
-Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+title: "Data 624 Project 2"
+author:
 
-(Dispersion parameter for gaussian family taken to be 0.01733671)
 
-    Null deviance: 57.747  on 1930  degrees of freedom
-Residual deviance: 33.061  on 1907  degrees of freedom
-AIC: -2324.3
+output: 
+  html_document:
+    toc: true
+    number_sections: true
+    toc_depth: 6
+    toc_float: true
+    code_folding: hide
+    df_print: paged
+---
 
-Number of Fisher Scoring iterations: 2
 
+# Problem Statement
+
+Data related to the manufacturing process of a soft drink are provided, including values
+of various parameters that control the process. The objective is to build a predictive model to predict the
+pH content based on the manufacturing process data.
+
+
+# Executive Summary
+
+Since predicting the value of a numerical variable such as PH is a regression problem, our methodology consists of
+building five different models for the problem, and ranking their performance on a holdout portion
+of the training data provided. We then selected the model with the lowest RMSE value on the
+holdout data set. We developed predictors using the following models:
+
+    - Support Vector Machine
+    - Stochastic Gradient Boosting
+    - Random Forest
+    - Neural Network
+    - Generalized Linear Model
+
+Comparing the model prediction errors on the holdout data set, we found that the Random Forest model
+consistently produced the best results, and we therefore selected it to make predictions on
+the test data set that was provided.
+
+<TODO: Also mention what were the most important predictors>
+
+## Dependencies
+
+Our code has dependencies on the following R packages.
+
+```{r libs, eval=T, echo=T, warning=F, message=F}
+library(caret)
+library(caTools)
+library(corrplot)
+library(e1071)
+library(fastDummies)
+library(forecast)
+library(ggplot2)
+library(imputeTS)
+library(lattice)
+library(knitr)
+library(ModelMetrics)
+library(nnet)
+library(randomForest)
+library(readxl)
+library(reshape2)
+library(tidyr)
+library(tidyverse)
+library(xlsx)
+
+# Show loaded packages.
+(.packages())
+```
+
+
+# Data Initialization and Preprocessing
+
+Below we can see a sample of the data, as read from Excel files. Our target variable is pH and each data vector, except for brand code, is numeric. However, we can convert this to a numeric vector easily. There are also some missing values that must be imputed. The only non-numeric data is the brand code. All lettered codes have been replaced with the equivalent integers
+($A \rightarrow 1, B \rightarrow 2, ... $). Likewise, the NAs have been replaced with 0 such that they don't contribute to the regression function.
+
+
+```{r init1, eval=T, echo=T, warning=F, message=F}
+training <- read_excel("StudentData.xlsx")
+test     <- read_excel("StudentEvaluation.xlsx")
+
+training <- dummy_cols(training, select_columns = training$Brand.Code)
+test <- dummy_cols(test, select_columns = test$Brand.Code)
+
+training <- as.data.frame(sapply(training, as.numeric))
+test     <- as.data.frame(sapply(test, as.numeric))
+
+names(training) <- make.names(names(training))
+names(test) <- make.names(names(test))
+
+training$Brand.Code <- NULL
+test$Brand.Code <- NULL
+head(training)
+```
+
+
+## Imputation of Missing Values
+
+Below we impute the missing values using a monotone cubic approximator (known as a Stineman interpolation). It has a tendency to perform well on linear as well as higher-order data vectors.
+
+```{r impute1, eval=T, echo=T, warning=F, message=F}
+training <- na.interpolation(training, option = 'stine')
+test <- na.interpolation(test, option = 'stine')
+```
+
+Below we can see the mean and standard deviation for each data vector. As we can see, our data occurrs across many orders of magnitude. For the best fit, the data should be centered and scaled. 
+
+```{r mean_sd, eval=T, echo=T, warning=F, message=F}
+means <- sapply(training, mean, na.rm = TRUE)
+sds   <- sapply(training, sd, na.rm = TRUE)
+explore <- as.data.frame(cbind( means, sds))
+ggplot(explore, aes(x = row.names(explore), y = means))+ 
+  geom_bar(stat = 'identity') + 
+  labs(title = "Means of Various Features") + 
+  xlab("Data Features") + 
+  ylab("Mean of Data") +
+  theme(panel.background = element_blank()) + 
+  geom_errorbar(aes(ymin = means - sds, ymax = means + sds))
+```
+
+These plots confirm the non-normality of most of our data. For the non-linear models, we must center and scale them. Additionally, we will need other data transformations (discussed below).
+
+```{r figure1, fig.height=10}
+ggplot(data = gather(training), mapping = aes(x = value)) + 
+  geom_histogram(aes(y=..density..), colour="black", fill="white")+
+  geom_density(alpha=.2, fill="lightgrey")+
+  facet_wrap(~key, ncol = 1, scales = 'free') 
+```
+
+
+## Correlation Plot of Predictors
+
+We can see significant covariance in the data. Additionally, many data points have near-zero variance. Excluding these confounding variables will improve our model.
+
+```{r corrplot, eval=T, echo=T, warning=F, message=F}
+results <- cor(training, method = 'pearson')
+corrplot::corrplot(results, method = 'circle')
+```
+
+
+
+## Checking for Missing Values
+
+As we can see, four rows do not have pH data provided. Therefore, we will exclude them from training. 
+
+```{r missing_val, eval=T, echo=T, warning=F, message=F}
+## Response variable missing value 
+#table(is.na(training$PH))
+## remove rows with missing response variable
+training <- training[!is.na(training$PH), ]
+
+## near zero value predictors
+nzv <- nearZeroVar(training, saveMetrics= TRUE)
+nzv[nzv$nzv,]
+
+```
+
+
+## Data Pre-processing
+
+For preprocessing of data, we remove near zero predictors, fill in missing values with KNN method, and transform predictors using the Yeo-Johnson transformation method. We also center and scale the data. Additionally, we remove the covariant terms and the ones with near zero variance here, since they will not improve our models.
+
+```{r pre_proc, eval=T, echo=T, warning=F, message=F}
+x_train <- subset(training, select = -PH )
+y_train <- training$PH
+
+x_test <- subset(test, select = -PH )
+y_test <- test$PH
+
+preProcValues <- preProcess(x_train, method = c("center", "scale", "YeoJohnson", "nzv", "corr"))
+
+trainTransformed <- predict(preProcValues, x_train)
+testTransformed <- predict(preProcValues, x_test)
+```
+
+
+
+# Support Vector Machine
+
+Comparing SVM with Neural Networks (NN), both are non-linear algorithms. A Support Vector Machine with different kernels is comparable to a Neural Network with different layers. One advantage SVMs have over NNs is that NNs need large amounts of data to train, SVMs work with smaller-sized data with less computing power. Finally SVM usually only have 2-3 parameters to tune, they are easy to code, and the results are explainable.
+On the other hand, SVMs might not beat NNs on the accuracy metric.
+
+
+```{r svm1, eval=T, echo=T, warning=F, message=F}
+set.seed(100)
+
+y_train.orig = y_train
+sample = sample.split(y_train.orig, SplitRatio = .75)
+y_train_svm = subset(y_train.orig, sample == TRUE)
+y_test_svm = subset(y_train.orig, sample == FALSE)
+
+training_svm = subset(trainTransformed, sample == TRUE)
+test_svm = subset(trainTransformed, sample == FALSE)
+
+fitControl <- trainControl(## 10-fold CV
+                           method = "repeatedcv",
+                           number = 3,
+                           ## repeated ten times
+                           repeats = 3)
+svmFit <- train(training_svm, y_train_svm,
+                 method = "svmRadial",
+                 trControl = fitControl,
+                 tuneLength = 8,
+                 metric = "RMSE")
+svmFit
+model1 <- svmFit
+
+rmse.svm.train = rmse(predict(svmFit, training_svm), y_train_svm)
+rmse.svm.test = rmse(predict(svmFit, test_svm), y_test_svm)
+kable(data.frame(Model=c("Support Vector Machine"), RMSE.train=c(rmse.svm.train), RMSE.test=c(rmse.svm.test)))
+```
+
+
+
+# Stochastic Gradient Boosting
+
+Gradient Boosting Models (GBM) and Random Forests are both tree-based ensemble algorithms, the difference being in the way that ensembles are created. RFs create independent trees, and each reaches maximum depth and contributes equally to the final model. GBMs build dependent trees with minimum depth, and contributes differently to the final model. An advantage of GBMs is that they will have better performance than RFs if tuning is done properly, and they are good for detecting anomalies. On the other hand, GBMs are more compute-intensive than RFs, and more prone to overfitting.
+
+
+```{r SGB1, eval=T, echo=T, warning=F, message=F}
+
+y_train_gbm = subset(y_train.orig, sample == TRUE)
+y_test_gbm = subset(y_train.orig, sample == FALSE)
+
+training_gbm = subset(trainTransformed, sample == TRUE)
+test_gbm = subset(trainTransformed, sample == FALSE)
+
+
+gbmGrid <-  expand.grid(interaction.depth = c(1, 5, 9), 
+                        n.trees = (1:30)*50, 
+                        shrinkage = 0.1,
+                        n.minobsinnode = 20)
+                        
+nrow(gbmGrid)
+
+set.seed(123)
+gbmFit <- train(training_gbm, y_train_gbm,
+                 method = "gbm",
+                 trControl = fitControl,
+                 verbose = FALSE,
+                 tuneGrid = gbmGrid,
+                 ## Specify which metric to optimize
+                 metric = "RMSE")
+#summary(gbmFit)
+
+rmse.gbm.train = rmse(y_train_gbm, predict(gbmFit, training_gbm))
+rmse.gbm.test = rmse(y_test_gbm, predict(gbmFit, test_gbm))
+kable(data.frame(Model=c("Stochastic Gradient Boosting"), RMSE.train=c(rmse.gbm.train), RMSE.test=c(rmse.gbm.test)))
+```
+
+
+# Random Forest Model
+
+Random forests are a modification of bagging that builds a large collection of de-correlated
+trees [1]. They are considered to belong in the category of non-parametric models since 
+the number of parameters grows with the size of the training set. They are considered to be
+an improvement to the use of CART (Classification and Regression Tree) models because they
+do not suffer from some of the problems associated with CART models, such as the fact that
+CART models are unstable: small changes to the structure of the input data can have large
+effects on the CART model [2]. Random forests are designed to be low-variance estimators.
+
+Random forests are based on the basic idea of aggregating uncorrelated sets of predictors,
+since one way to reduce the variance of an estimate is to average several estimates together [2].
+A random forest trains a randomly chosen set of input variables over a randomly chosen subset of
+the data, and aggregates together several such trees to produce an overall estimator. Random
+forests have proven to be quite successful in a variety of real-world applications and often
+are seen to generalize very well to unseen real-world data.
+
+
+```{r RF1, eval=T, echo=T, warning=F, message=F}
+
+# Split the training data into a portion that is withheld from the model and used to evaluate
+# the model.
+
+set.seed(123)
+sample = sample.split(training$PH, SplitRatio = .75)
+training_forest = subset(training, sample == TRUE)
+test_forest = subset(training, sample == FALSE)
+
+set.seed(123)
+rfFit <- randomForest::randomForest(PH ~ ., data = training_forest, importance = TRUE,
+                                    ntree = 100, keep.forest = TRUE)
+model2 <- rfFit
+
+varImpPlot(rfFit, n.var=20,
+           main="Important Variables in Random Forest Model (top 20 shown)")
+```
+
+
+We now compute RMSE values for the Random Forest model on both the training and the test (withheld) portion of the data set.
+
+```{r RF_rmse, eval=T, echo=T, warning=F, message=F}
+training_forest2 = dplyr::select(training_forest, -PH)
+rfPred.train = predict(rfFit, training_forest2)
+rmse.rf.train = rmse(training_forest$PH, rfPred.train)
+
+test_forest2 = dplyr::select(test_forest, -PH)
+rfPred.test = predict(rfFit, test_forest2)
+rmse.rf.test = rmse(test_forest$PH, rfPred.test)
+
+kable(data.frame(Model=c("Random Forest"), RMSE.train=c(rmse.rf.train), RMSE.test=c(rmse.rf.test)))
+```
+
+
+# Neural Network Model
+
+Neural Networks are a powerful nonlinear technique inspired by theories about how the human brain works [5]. Neural Networks can be classifiers (when the output variable is categorical) or regression (when the output variable is numeric). In this problem we use a regression artifical neural network (ANN) using the nnet package in R. Below we build and evaluate a Neural Network model of the regression problem.
+
+
+```{r nnet1, eval=T, echo=T, warning=F, message=F}
+set.seed(123)
+training_nn = training_forest2
+training_nn_ph = training_forest$PH
+test_nn = test_forest2
+test_nn_ph = test_forest$PH
+  
+nnetFit <- nnet(training_nn, training_nn_ph,
+                size = 4,
+                decay = 0.01,
+                linout = TRUE,
+                trace = FALSE,
+                maxit = 500, # Iterations
+                ## Number of parameters used by the model
+                MaxNWts= 4 * (ncol(training_nn) + 1) + 5 + 1)
+nnetFit
+model3 <- nnetFit
+rmse.nnet.train = rmse(training_nn_ph, predict(nnetFit, training_nn))
+rmse.nnet.test = rmse(test_nn_ph, predict(nnetFit, test_nn))
+kable(data.frame(Model=c("ANN"), RMSE.train=c(rmse.nnet.train), RMSE.test=c(rmse.nnet.test)))
+```
+
+
+
+# Generalized Linear Model
+
+Because our output value is continuous and our data is numeric, we can use a generalized linear model to compute the pH. These models are generic and assume linearity in response. We will use the "Gaussian" type which assumes normally distributed variables
+
+```{r glm1, eval=T, echo=T, warning=F, message=F}
+set.seed(123)
+training_glm = subset(training, sample == TRUE)
+test_glm = subset(training, sample == FALSE)
+
+glm_train_label <- training_glm$PH
+glm_test_label <- test_glm$PH
+glm_train <- select(training_glm, -PH)
+glm_test <- select(test_glm, -PH)
+
+model4 <- glm(glm_train_label ~., glm_train, family = "gaussian")
+model5 <- step(model4, direction = "backward", trace = FALSE)
+
+sum4 <- summary(model4)
+sum5 <- summary(model5)
+
+plot(model4)
+plot(model5)
+
+
+rmse.glm.train <- rmse(predict(model5, glm_train), glm_train_label)
+rmse.glm.test <- rmse(predict(model5, glm_test), glm_test_label)
+kable(data.frame(Model=c("GLM"), RMSE.train=c(rmse.glm.train), RMSE.test=c(rmse.glm.test)))
+```
+
+As we can see from the summary plots, both generalized linear models have randomly distributed residuals and fall fairly close to the actual values. It therefore fulfills the assumptions of this model
+
+# Comparison of Model Performance
+
+We now compare and rank the RMSE errors produced by the various models on the portion of the training data that was withheld from the training of the models. Using the model with the smallest RMSE on the withheld training data, we also make a final prediction on the test data provided. The predictions are written to an Excel file.
+
+Since we see that the Random Forest model produced the lowest RMSE on the withheld training data, we select it as the best model to predict PH in the manufacturing process data set. A final set of predictions is made using this model.
+
+
+```{r compare_and_predict, eval=T, echo=T, warning=F, message=F}
+modelperf = data.frame(matrix(ncol=3, nrow=10))
+colnames(modelperf) = c("Dataset", "Model", "RMSE")
+
+
+modelperf[1,] = list("Train", "Random Forest", rmse.rf.train)
+modelperf[2,] = list("Test", "Random Forest", rmse.rf.test)
+modelperf[3,] = list("Train", "ANN", rmse.nnet.train)
+modelperf[4,] = list("Test", "ANN", rmse.nnet.test)
+modelperf[5,] = list("Train", "SVM", rmse.svm.train)
+modelperf[6,] = list("Test", "SVM", rmse.svm.test)
+modelperf[7,] = list("Train", "GBM", rmse.gbm.train)
+modelperf[8,] = list("Test", "GBM", rmse.gbm.test)
+modelperf[9,] = list("Train", "GLM", rmse.glm.train)
+modelperf[10,] = list("Test", "GLM", rmse.glm.test)
+
+ggplot(data=modelperf, aes(x=Model, y=RMSE, fill=Dataset)) +
+    geom_bar(stat="identity", position=position_dodge()) +
+    ggtitle("Model Performance for PH Prediction")
+
+bestFit = model5
+PH.pred = predict(bestFit, test)
+write.xlsx(PH.pred, file="DATA624_Proj2.xlsx", sheetName="PH", append=F)
+```
+
+
+# Conclusions
+
+All of our models performed fairly well, with a measured RMSE of around one-tenth of a pH point. The Random Forest regressor has the worst split between test and train data which is symptomatic of overfitting. However, this split was greatly reduced by gradient boosting, at the cost of higher RMSE. Additionally, the support vector machine also suffered from a test/train split that was fairly large. Therefore, it is hard to know how it will perform across a generalized data set. Since the GLM underperforms the only remaining model (the neural network) by only .01 RMSE, there seems to be no downsides to deploying the linear model. In additional, the computational costs associate with the neural network far outweigh the marginal benefits. A linear model can be computed trivially on any type of hardware (CPU or GPU). This is the method we will be deploying.
+
+
+```{r}
+summary(model5)
+```
+TODO: Discuss the coefficients of the chosen model. 
+
+
+# References
+
+1. Random Forests. https://uc-r.github.io/random_forests
+2. Kevin Murphy (2012). Machine Learning a Probabilistic Perspective.
+3. Support Vector Machine. https://uc-r.github.io/svm
+4. Support Vector Machines. http://web.mit.edu/6.034/wwwbob/svm.pdf
+5. Kuhn et al (2013). Applied Predictive Modeling
