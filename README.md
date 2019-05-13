@@ -11,4 +11,5 @@ CUNY 624 Final Project
 * StudentData.xlsx -- Our training data set
 * StudentEvaluation.xlsx -- Our evaluation data set
 * Data624_Proj2.xlsx -- Our output data, which is a copy of the evaluation data set with the addition of our predicted pH values. 
+* [Rpubs Link](https://github.com/AndrewReynen/Lazylyst/wiki/Hot-Variables)
 
