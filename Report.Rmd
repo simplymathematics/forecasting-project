@@ -361,7 +361,7 @@ r2.glm.test <- R2(predict(model5, glm_test), glm_test_label)
 kable(data.frame(Model=c("GLM"), RMSE.train=c(rmse.glm.train), RSquared.train=c(r2.glm.train), RMSE.test=c(rmse.glm.test), RSquared.test=c(r2.glm.test)))
 ```
 
-As we can see from the summary plots, both generalized linear models have randomly distributed residuals and fall fairly close to the actual values. It therefore fulfills the assumptions of this model
+As we can see from the summary plots, both generalized linear models have randomly distributed residuals and fall fairly close to the actual values. It therefore fulfills the assumptions of this model. However, the first quartile is consistently over-predicted, making it in appropriate for our purposes.
 
 # Comparison of Model Performance
 
@@ -402,14 +402,11 @@ write.xlsx(PH.pred, file="DATA624_Proj2.xlsx", sheetName="PH", append=F)
 
 # Conclusions
 
-All of our models performed fairly well, with a measured RMSE of less than one-tenth of a pH point. Random Forecast outperformed other models with the smallest RMSE and largest RSquared values in training (0.0410 and 0.96) and test (0.099 and 0.684), and is selected as a winner. Random Forecast is a tree-based model, it is hard to get coefficients for each variables, but it does have a way to show the importance of the variables in affecting the target variables, as showed in the important variable lists above. The top 6 highly important variables are Mnf.FLow, Band.Code_C(via one-hot-encoding of Brand.Code), Pressure.Vacuum, Oxygen.Filler, and Temperature. By changing these variables, we can maximum control the PH of the product.
-
-Even though Random Forest regressor has the worst split between test and train data which is symptomatic of over fitting. However, this split was greatly reduced by gradient boosting, at the cost of higher RMSE. Additionally, the support vector machine also suffered from a test/train split that was fairly large. Therefore, it is hard to know how it will perform across a generalized data set. Since the GLM underperforms the only remaining model (the neural network) by only .01 RMSE, there seems to be no downsides to deploying the linear model. In additional, the computational costs associate with the neural network far outweigh the marginal benefits. A linear model can be computed trivially on any type of hardware (CPU or GPU). This is the method we will be deploying.
-
+All of our models performed fairly well, with a measured RMSE of less than one-tenth of a pH point. Random Forecast outperformed other models with the smallest RMSE and largest RSquared values in training (0.0410 and 0.96) and test (0.099 and 0.684), and is selected as our best model. Random Forecast is a tree-based model, it is hard to get coefficients for each variables, but it does have a way to show the importance of the variables in affecting the target variables, as showed in the important variable lists above. The top 6 highly important variables are Mnf.FLow, Band.Code_C(via one-hot-encoding of Brand.Code), Pressure.Vacuum, Oxygen.Filler, and Temperature. By changing these variables, we can maximize the control the PH of the product while minimizing the things we have to monitor. 
 
 # Next Step
 
-They are many ways we can continue improving the model performance, one method could be running more times of cross validation on more folds than 3 times 3-fold we have now for SVM and GBM models, it will take a longer time to compute, but the results will be lifted. Another one is to try different model training and test split, as the big differences are showed in training and test model performance in Random Forecast and SVM.
+They are many ways we can continue improving the model performance, one method could be running more times of cross validation on more folds than 3 times 3-fold we have now for SVM and GBM models, it will take a longer time to compute, but the results will be lifted. Another one is to try different model training and test split, as the big differences are showed in training and test model performance in Random Forecast and SVM. If we had a larger data set or a more equal test/train split, we would see the error gap narrow.
 
 
 # References
