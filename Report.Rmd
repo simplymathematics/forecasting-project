@@ -70,7 +70,9 @@ library(xlsx)
 
 # Data Initialization and Preprocessing
 
-Below we can see a sample of the data, as read from Excel files. Our target variable is pH and each data vector, except for brand code, is numeric. However, we can convert this to a numeric vector easily. There are also some missing values that must be imputed. The only non-numeric data is the brand code. The Brand Code has been converted into 4 binary columns corresponding to each brand.
+Below we can see a sample of the data, as read from Excel files. Our target variable is pH and each data vector, except for brand code, is numeric. However, we can convert this to a numeric vector easily. There are also some missing values that must be imputed. The only non-numeric data is the brand code. All lettered codes have been replaced with the equivalent integers
+($A \rightarrow 1, B \rightarrow 2, ... $). Likewise, the NAs have been replaced with 0 such that they don't contribute to the regression function.
+
 
 
 ```{r init1, eval=T, echo=T, warning=F, message=F}
